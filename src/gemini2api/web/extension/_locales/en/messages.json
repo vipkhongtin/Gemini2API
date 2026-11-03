@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "gemini2api Cookie Import",
+    "description": "Extension name"
+  },
+  "extDesc": {
+    "message": "Import your Google AI Studio login cookies into your gemini2api gateway in one click.",
+    "description": "Extension description"
+  }
+}

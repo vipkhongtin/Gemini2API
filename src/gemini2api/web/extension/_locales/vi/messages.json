@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "gemini2api Nhập Cookie",
+    "description": "Tên extension"
+  },
+  "extDesc": {
+    "message": "Nhập cookie đăng nhập Google AI Studio vào gateway gemini2api chỉ bằng một cú nhấp.",
+    "description": "Mô tả extension"
+  }
+}

@@ -1,0 +1,11 @@
+services:
+  gemini2api:
+    build: .
+    ports:
+      - "18610:18610"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    shm_size: "1gb"
+    restart: unless-stopped

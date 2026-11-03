@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "gemini2api Cookie 导入",
+    "description": "扩展程序名称"
+  },
+  "extDesc": {
+    "message": "一键将 Google AI Studio 登录 Cookie 导入到你的 gemini2api 网关。",
+    "description": "扩展程序描述"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini2API - Google AI Studio Bridge (Gemini 4 Argon)",
+  "version": "0.4.0",
+  "description": "Kết nối trực tiếp trình duyệt Chrome của bạn với Gemini2API để sử dụng Gemini 4 Argon trên Google AI Studio không cần API Key.",
+  "default_locale": "vi",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://aistudio.google.com/*",
+    "https://*.google.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Gemini2API - AI Studio Bridge",
+    "default_popup": "popup.html"
+  }
+}
