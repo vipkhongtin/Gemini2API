@@ -48,6 +48,15 @@ def test_followup_rejects_a_different_history():
 def test_thread_url_ignores_the_new_thread_page():
     from gemini2api.drivers.browser.driver import is_thread_url
 
+    # Primary: Chat Gemini (gemini.google.com/app/<id>)
+    assert is_thread_url("https://gemini.google.com/app/1a2b3c4d5e6f")
+    assert is_thread_url("https://gemini.google.com/u/0/app/1a2b3c4d5e6f")
+    assert not is_thread_url("https://gemini.google.com/app")
+    assert not is_thread_url("https://gemini.google.com/app/")
+    assert not is_thread_url("https://gemini.google.com/u/0/app")
+    assert not is_thread_url("https://gemini.google.com/")
+
+    # Secondary: Google AI Studio (aistudio.google.com/prompts/<id>)
     assert is_thread_url("https://aistudio.google.com/prompts/123abc")
     assert not is_thread_url("https://aistudio.google.com/prompts/new_chat")
     assert not is_thread_url("https://aistudio.google.com/prompts/new_chat/")
@@ -55,6 +64,9 @@ def test_thread_url_ignores_the_new_thread_page():
 
 
 def test_resolve_model():
+    assert resolve_model("gemini-chat", "chat").id == "gemini-chat"
+    assert resolve_model("gemini-pro", "chat").id == "gemini-pro"
+    assert resolve_model("gemini-flash", "chat").id == "gemini-flash"
     assert resolve_model("gemini-4-argon", "chat").id == "gemini-4-argon"
     assert resolve_model("gemini-4-argon-high", "chat").id == "gemini-4-argon-high"
     assert resolve_model("gemini-4-argon-low", "chat").id == "gemini-4-argon-low"

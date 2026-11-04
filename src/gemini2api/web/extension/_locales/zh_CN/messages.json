@@ -1,10 +1,10 @@
 {
   "extName": {
-    "message": "gemini2api Cookie 导入",
+    "message": "Gemini2API - Chat Gemini (主) & AI Studio 桥接器",
     "description": "扩展程序名称"
   },
   "extDesc": {
-    "message": "一键将 Google AI Studio 登录 Cookie 导入到你的 gemini2api 网关。",
+    "message": "一键将 Google Gemini 网页对话 (gemini.google.com - 主) 与 Google AI Studio (aistudio.google.com - 辅) 连接到 Gemini2API 网关。",
     "description": "扩展程序描述"
   }
 }

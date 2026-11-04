@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gemini2api"
-version = "0.4.0"
-description = "OpenAI-compatible gateway for Google AI Studio & Gemini 4 Argon with pluggable upstream drivers"
+version = "0.5.0"
+description = "OpenAI-compatible gateway for Google Gemini Web Chat (gemini.google.com - Primary) & Google AI Studio (aistudio.google.com - Secondary)"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

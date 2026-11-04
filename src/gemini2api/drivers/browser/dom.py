@@ -1,6 +1,7 @@
-"""DOM selectors and in-page scripts for Google AI Studio (aistudio.google.com).
+"""DOM selectors and in-page scripts for Google Gemini Chat (`gemini.google.com`, primary)
+and Google AI Studio (`aistudio.google.com`, secondary).
 
-All knowledge about the page structure lives here. When Google AI Studio ships a UI
+All knowledge about the page structure lives here. When Google Gemini or AI Studio ships a UI
 change, this is normally the only file that needs updating. Scripts return
 JSON-serialisable values and never throw (errors are reported in the payload).
 """
@@ -12,26 +13,37 @@ import re
 import unicodedata
 from typing import Any
 
-# Google AI Studio (Angular Material ms-* components) + fallback selectors
+# Google Gemini Chat (gemini.google.com/app) primary + Google AI Studio (aistudio.google.com) secondary selectors
 INPUT = (
+    'rich-textarea .ql-editor[contenteditable="true"], '
+    'div.ql-editor.textarea[contenteditable="true"], '
+    'rich-textarea [contenteditable="true"], '
+    '[contenteditable="true"][role="textbox"], '
     'ms-autosize-textarea textarea, textarea[aria-label*="Type something" i], '
     'textarea[aria-label*="prompt" i], footer textarea, textarea'
 )
 AGENT_BUBBLE = (
+    'model-response, message-content.model-response-text, '
     'ms-chat-turn .model-prompt-container, ms-chat-turn[data-turn-role="Model"], '
     'div[class*="model-prompt-container"], div[class*="hatch-agent-bubble-bg"]'
 )
 THOUGHT_CHUNK = (
+    'model-thoughts, .thoughts-container, .thoughts-content, [data-test-id*="thoughts" i], '
     'ms-thought-chunk, mat-expansion-panel.thought-panel, [data-test-id*="thought"]'
 )
 ATTACHMENT = (
+    'model-response img, model-response video, '
     'ms-chat-turn img, ms-chat-turn video, [data-testid^="hatch-chat-attachment-presentation-"]'
 )
 STOP_BUTTON = (
+    'button.send-button.stop, button[aria-label*="Stop response" i], '
+    'button[aria-label*="Stop generating" i], '
     'button.run-button.stoppable, ms-run-button button.stoppable, '
     'button[aria-label*="Stop" i]'
 )
 RUN_BUTTON = (
+    'button.send-button:not(.stop), .send-button-container button:not(.stop), '
+    'button[aria-label*="Send message" i], button[aria-label*="Gửi tin nhắn" i], '
     'ms-run-button button:not(.stoppable), button.run-button:not(.stoppable), '
     'button[aria-label="Run" i], button[aria-label^="Run " i]:not([aria-label*="setting" i]), '
     'button[aria-label*="Send" i]'
@@ -79,8 +91,17 @@ PAGE_STATE = f"""(() => {{
   }};
 }})()"""
 
-# Open a blank chat through Google AI Studio's SPA router (or Next.js router fallback)
+# Open a blank chat through Chat Gemini (primary) or Google AI Studio (secondary) SPA router
 SOFT_NEW_THREAD = """(() => {
+  if (location.hostname.endsWith('gemini.google.com')) {
+    const newBtn = document.querySelector(
+      '[data-test-id="new-chat-button"] button, [data-test-id="new-chat-button"], a[href="/app"], button[aria-label*="New chat" i], button[aria-label*="Cuộc trò chuyện mới" i]'
+    );
+    if (newBtn) {
+      newBtn.click();
+      return true;
+    }
+  }
   if (location.hostname.endsWith('aistudio.google.com')) {
     const link = document.querySelector('a[href*="/prompts/new_chat"]');
     if (link) {
@@ -98,7 +119,9 @@ SOFT_NEW_THREAD = """(() => {
 
 FRESH_THREAD = f"""(() => {{
   const page = {PAGE_STATE};
-  const isNewPath = page.path.includes('/prompts/new_chat') || page.path === '/thread/new';
+  const isNewPath = page.path === '/app' || page.path === '/app/'
+    || /^\\/u\\/\\d+\\/app\\/?$/.test(page.path)
+    || page.path.includes('/prompts/new_chat') || page.path === '/thread/new';
   return page.ready && isNewPath
          && document.querySelectorAll({q(AGENT_BUBBLE)}).length === 0;
 }})()"""
@@ -224,20 +247,35 @@ LAST_BUBBLE_MEDIA = f"""(() => {{
 
 
 def fill_input(text: str) -> str:
-    """Set the textarea value through the native setter so Angular / React picks it up."""
+    """Set the prompt value on either a contenteditable editor (Chat Gemini) or textarea (AI Studio)."""
     return f"""(() => {{
-  const ta = document.querySelector({q(INPUT)});
-  if (!ta) return {{ ok: false, err: 'no-input' }};
-  ta.focus();
-  const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
-  if (proto && proto.set) {{
-    proto.set.call(ta, {q(text)});
-  }} else {{
-    ta.value = {q(text)};
+  const el = document.querySelector({q(INPUT)});
+  if (!el) return {{ ok: false, err: 'no-input' }};
+  el.focus();
+  if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {{
+    const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    if (proto && proto.set) {{
+      proto.set.call(el, {q(text)});
+    }} else {{
+      el.value = {q(text)};
+    }}
+    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+    return {{ ok: true, len: el.value.length }};
   }}
-  ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
-  ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
-  return {{ ok: true, len: ta.value.length }};
+  // Contenteditable (Quill .ql-editor on gemini.google.com/app)
+  el.innerHTML = '';
+  const lines = String({q(text)}).split('\\n');
+  for (const line of lines) {{
+    const p = document.createElement('p');
+    if (line) p.textContent = line;
+    else p.appendChild(document.createElement('br'));
+    el.appendChild(p);
+  }}
+  el.classList.remove('ql-blank');
+  el.dispatchEvent(new InputEvent('input', {{ bubbles: true, composed: true, inputType: 'insertText', data: {q(text)} }}));
+  el.dispatchEvent(new Event('change', {{ bubbles: true, composed: true }}));
+  return {{ ok: true, len: (el.innerText || el.textContent || '').length }};
 }})()"""
 
 

@@ -1,8 +1,12 @@
-# Tiện ích Chrome: Gemini2API - Google AI Studio Bridge (Gemini 4 Argon)
+# Chrome Extension: Gemini2API — Chat Gemini (`gemini.google.com`) [Primary] & AI Studio [Secondary] Bridge
 
-Tiện ích Chrome này giúp bạn sử dụng **Gemini 4 Argon (`gemini-4-argon`)** trên **Google AI Studio (`https://aistudio.google.com`)** thông qua trình duyệt Chrome thật của bạn **mà không cần Google API Key**.
+Tiện ích Chrome này giúp bạn biến **Chat Gemini (`https://gemini.google.com/app`) [Chính]** và **Google AI Studio (`https://aistudio.google.com`) [Phụ]** thành OpenAI-compatible API thông qua trình duyệt Chrome thật của bạn **mà không cần Google API Key**.
 
-## Cách cài đặt vào Chrome (Chỉ mất 30 giây)
+This Chrome Extension connects **Google Gemini Web Chat (`https://gemini.google.com/app`) [Primary]** and **Google AI Studio (`https://aistudio.google.com`) [Secondary]** to your local `Gemini2API` server without requiring a paid API key.
+
+---
+
+## 🇻🇳 Hướng dẫn cài đặt (Tiếng Việt - 30 giây)
 
 1. Mở trình duyệt Chrome (hoặc Edge / Brave / Cốc Cốc), nhập vào thanh địa chỉ:
    ```
@@ -12,15 +16,20 @@ Tiện ích Chrome này giúp bạn sử dụng **Gemini 4 Argon (`gemini-4-argo
 3. Nhấn nút **Tải tiện ích đã giải nén (Load unpacked)** ở góc trên bên trái.
 4. Chọn thư mục:
    ```
-   d:\AI KIEN\GEMINI2API\chrome-extension
+   D:\AI KIEN\GEMINI2API\Gemini2API\chrome-extension
    ```
-5. Mở một tab **`https://aistudio.google.com/prompts/new_chat`** và đăng nhập tài khoản Google của bạn.
-6. Nhấp vào biểu tượng tiện ích **Gemini2API Bridge** trên thanh công cụ Chrome → bấm **"⚡ Kết nối & Đồng bộ AI Studio ngay"**. Biểu tượng tiện ích sẽ hiện chữ **`ON`** màu xanh lá!
+5. Mở một tab **Chat Gemini (Chính)**: **`https://gemini.google.com/app`** (hoặc **AI Studio (Phụ)**: `https://aistudio.google.com/prompts/new_chat`) và đăng nhập tài khoản Google của bạn.
+6. Nhấp vào biểu tượng tiện ích **Gemini2API Bridge** trên thanh công cụ Chrome → chọn nguồn **💬 Chat Gemini (Chính)** (mặc định) hoặc **🧪 Google AI Studio (Phụ)** → bấm **"⚡ Kết nối & Đồng bộ ngay"**. Biểu tượng tiện ích sẽ hiện chữ **`ON`** màu xanh lá!
 
-## Cơ chế hoạt động kép
+---
 
-1. **Live Browser Bridge (`/ws/extension`)**:
-   - Tiện ích giữ kết nối WebSocket trực tiếp với `Gemini2API` (`ws://127.0.0.1:18610/ws/extension`).
-   - Khi có yêu cầu chat tới `http://127.0.0.1:18610/v1/chat/completions`, tiện ích tự động chọn model **Gemini 4 Argon** trên tab `aistudio.google.com` đang mở trong Chrome của bạn, gửi câu hỏi và truyền trực tiếp luồng **Thinking (`reasoning_content`)** + **Câu trả lời** về cho bạn.
-2. **Đồng bộ Cookie 1-Click (`/admin/accounts`)**:
-   - Tiện ích tự động đồng bộ phiên cookie của bạn vào Account Pool trên Server để bạn có thể quản lý nhiều tài khoản trên `http://127.0.0.1:18610/dashboard`.
+## 🇬🇧 Quick Setup (English - 30 seconds)
+
+1. Open Chrome (or Edge / Brave) and navigate to:
+   ```
+   chrome://extensions
+   ```
+2. Enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** (top-left button) and select the `chrome-extension` folder.
+4. Open **`https://gemini.google.com/app`** (Primary) — or **`https://aistudio.google.com/prompts/new_chat`** (Secondary) — and sign in with your Google account.
+5. Click the **Gemini2API Bridge** extension icon → choose **Chat Gemini (Primary)** or **Google AI Studio (Secondary)** → click **"⚡ Connect & Sync"**. The badge will turn green **`ON`**.

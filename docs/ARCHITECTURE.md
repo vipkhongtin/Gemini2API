@@ -1,6 +1,6 @@
-# Phân tích Kiến trúc `muse2api` → `gemini2api` (Gemini 4 Argon)
+# Phân tích Kiến trúc `muse2api` → `gemini2api` (Chat Gemini [Chính] & AI Studio [Phụ])
 
-Tài liệu này mô tả chi tiết phân tích từ kho mã nguồn tham chiếu [`muse2api`](https://github.com/www222fff/muse2api) và cách chuyển đổi, mở rộng sang **`gemini2api`** để phục vụ **Gemini 4 Argon (`gemini-4-argon`)** qua **Google AI Studio (`aistudio.google.com`)**.
+Tài liệu này mô tả chi tiết phân tích từ kho mã nguồn tham chiếu [`muse2api`](https://github.com/www222fff/muse2api) và cách chuyển đổi, mở rộng sang **`gemini2api`** để phục vụ **Google Gemini Web Chat (`https://gemini.google.com/app` — Chính)** và **Google AI Studio (`https://aistudio.google.com` — Phụ)**.
 
 ---
 
@@ -44,7 +44,8 @@ Client (OpenAI SDK / Cursor / Cline / LobeChat / NextChat)
 
 | Thành phần | `muse2api` (Gốc) | `gemini2api` (Mới - Gemini 4 Argon) |
 |---|---|---|
-| **Upstream Domain** | `https://muse.ai` (`/thread/new`) | `https://aistudio.google.com` (`/prompts/new_chat`) |
+| **Upstream Domain (Chính)** | `https://muse.ai` (`/thread/new`) | `https://gemini.google.com` (`/app`) — **Google Gemini Web Chat (Chính)** |
+| **Upstream Domain (Phụ)** | - | `https://aistudio.google.com` (`/prompts/new_chat`) — **Google AI Studio (Phụ)** |
 | **Session Cookies** | `hatch_sess`, `hatch_native_auth_device`, `hatch_gw`, `hatch_vml` | `SID`, `__Secure-1PSID`, `HSID`, `SSID`, `APISID`, `SAPISID`, `__Secure-1PSIDTS` |
 | **Header uỷ quyền phụ** | Không có | `Authorization: SAPISIDHASH <ts>_<sha1>` (`sapisidhash_header`) |
 | **Model mặc định** | `muse-chat` | `gemini-4-argon` (`models/gemini-4-argon`) |

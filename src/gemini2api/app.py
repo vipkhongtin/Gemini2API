@@ -118,7 +118,7 @@ def create_app(settings: Settings | None = None, driver: GeminiDriver | None = N
                             existing = services.pool.get("chrome-extension")
                             acc = existing or Account(
                                 id="chrome-extension",
-                                label=str(msg.get("label") or "Chrome Extension (AI Studio)"),
+                                label=str(msg.get("label") or "Chrome Extension (Chat Gemini / AI Studio)"),
                             )
                             acc.cookies = cookies
                             acc.cookie_expires = expires

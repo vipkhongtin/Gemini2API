@@ -1,11 +1,12 @@
 """WebSocket bridge between ``gemini2api`` and the Chrome Extension running in the
 user's real Chrome browser.
 
-When the user installs the Chrome Extension and opens ``https://aistudio.google.com``,
+When the user installs the Chrome Extension and opens ``https://gemini.google.com/app``
+(Primary: Chat Gemini) or ``https://aistudio.google.com`` (Secondary: Google AI Studio),
 the extension's background service worker connects to ``/ws/extension``. Incoming
 ``/v1/chat/completions`` and ``/v1/responses`` requests can then be executed directly
-inside the user's real Chrome tab on Google AI Studio — requiring no Google API key
-and bypassing headless browser login/BotGuard challenges.
+inside the user's real Chrome tab — requiring no Google API key and bypassing headless
+browser login/BotGuard challenges.
 """
 
 from __future__ import annotations
@@ -52,7 +53,9 @@ class ExtensionBridge:
                     "id": cid,
                     "connected_at": meta.get("connected_at"),
                     "last_seen_at": meta.get("last_seen_at"),
+                    "gemini_tabs": meta.get("gemini_tabs", 0),
                     "aistudio_tabs": meta.get("aistudio_tabs", 0),
+                    "upstream_mode": meta.get("upstream_mode", "gemini"),
                     "has_cookies": meta.get("has_cookies", False),
                     "user_agent": meta.get("user_agent", ""),
                 }
@@ -72,7 +75,9 @@ class ExtensionBridge:
             self._client_meta[cid] = {
                 "connected_at": now,
                 "last_seen_at": now,
+                "gemini_tabs": 0,
                 "aistudio_tabs": 0,
+                "upstream_mode": "gemini",
                 "has_cookies": False,
             }
         log.info("Chrome extension connected: %s", cid)
@@ -88,8 +93,12 @@ class ExtensionBridge:
         meta = self._client_meta.get(cid)
         if meta is not None:
             meta["last_seen_at"] = time.time()
+            if "gemini_tabs" in data:
+                meta["gemini_tabs"] = int(data.get("gemini_tabs") or 0)
             if "aistudio_tabs" in data:
                 meta["aistudio_tabs"] = int(data.get("aistudio_tabs") or 0)
+            if "upstream_mode" in data:
+                meta["upstream_mode"] = str(data.get("upstream_mode") or "gemini")
             if "has_cookies" in data:
                 meta["has_cookies"] = bool(data.get("has_cookies"))
             if "user_agent" in data:
@@ -105,7 +114,8 @@ class ExtensionBridge:
         if not self._clients:
             raise UpstreamError(
                 "Chrome Extension chưa kết nối. Hãy cài đặt tiện ích từ thư mục "
-                "'chrome-extension' vào Chrome và mở https://aistudio.google.com."
+                "'chrome-extension' vào Chrome và mở https://gemini.google.com/app (Chính) "
+                "hoặc https://aistudio.google.com (Phụ)."
             )
         # Prefer the most recently active extension client
         cid = max(

@@ -1,10 +1,10 @@
 {
   "extName": {
-    "message": "gemini2api Cookie Import",
+    "message": "Gemini2API - Chat Gemini (Primary) & AI Studio Bridge",
     "description": "Extension name"
   },
   "extDesc": {
-    "message": "Import your Google AI Studio login cookies into your gemini2api gateway in one click.",
+    "message": "Connect Google Gemini Web Chat (gemini.google.com - Primary) and Google AI Studio (aistudio.google.com - Secondary) to your Gemini2API gateway.",
     "description": "Extension description"
   }
 }

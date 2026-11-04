@@ -1,3 +1,3 @@
-"""gemini2api — OpenAI-compatible gateway for Google AI Studio & Gemini 4 Argon."""
+"""gemini2api — OpenAI-compatible gateway for Google Gemini Web Chat (gemini.google.com - Primary) & Google AI Studio (aistudio.google.com - Secondary)."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

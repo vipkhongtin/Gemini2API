@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<title>Gemini2API - AI Studio Bridge</title>
+<title>Gemini2API - Chat Gemini &amp; AI Studio Bridge</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -20,7 +20,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    width: 360px;
+    width: 370px;
     padding: 16px;
     font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--fg);
@@ -85,6 +85,25 @@
   .dot.warn { background: var(--warn); }
   .dot.bad { background: var(--bad); }
 
+  .mode-box {
+    margin-bottom: 10px;
+  }
+  .mode-box label {
+    margin: 0 0 4px;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--card);
+    color: var(--fg);
+    font: 12.5px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
   button {
     width: 100%;
     padding: 10px 12px;
@@ -116,6 +135,9 @@
   }
   .btn-secondary:hover {
     background: #283548;
+  }
+  .btn-full {
+    margin-top: 8px;
   }
 
   details {
@@ -163,7 +185,7 @@
 <body>
   <div class="header">
     <h1>Gemini2API Bridge</h1>
-    <span class="badge">Gemini 4 Argon</span>
+    <span class="badge">Chat Gemini (Chính)</span>
   </div>
 
   <div class="status-box">
@@ -175,24 +197,37 @@
       </span>
     </div>
     <div class="status-row">
-      <span class="status-label">Phiên Google AI Studio</span>
+      <span class="status-label">Phiên đăng nhập Google</span>
       <span class="pill" id="cookieStatus">
         <span class="dot" id="cookieDot"></span>
         <span id="cookieText">Đang kiểm tra...</span>
       </span>
     </div>
     <div class="status-row">
-      <span class="status-label">Tab AI Studio đang mở</span>
-      <span class="pill" id="tabText">0 tab</span>
+      <span class="status-label">Tab Chat Gemini (Chính)</span>
+      <span class="pill" id="geminiTabText">0 tab</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Tab AI Studio (Phụ)</span>
+      <span class="pill" id="aiStudioTabText">0 tab</span>
     </div>
   </div>
 
-  <button id="syncBtn" type="button">⚡ Kết nối &amp; Đồng bộ AI Studio ngay</button>
+  <div class="mode-box">
+    <label for="upstreamMode">Nguồn thực thi (Upstream Mode)</label>
+    <select id="upstreamMode">
+      <option value="gemini">💬 Chat Gemini (gemini.google.com) — Chính (Mặc định)</option>
+      <option value="aistudio">🧪 Google AI Studio (aistudio.google.com) — Phụ</option>
+    </select>
+  </div>
+
+  <button id="syncBtn" type="button">⚡ Kết nối &amp; Đồng bộ ngay</button>
 
   <div class="btn-row">
-    <button id="openAiStudioBtn" class="btn-secondary" type="button">🌐 Mở AI Studio</button>
-    <button id="openDashboardBtn" class="btn-secondary" type="button">📊 Mở Dashboard</button>
+    <button id="openGeminiBtn" class="btn-secondary" type="button">💬 Mở Chat Gemini (Chính)</button>
+    <button id="openAiStudioBtn" class="btn-secondary" type="button">🧪 Mở AI Studio (Phụ)</button>
   </div>
+  <button id="openDashboardBtn" class="btn-secondary btn-full" type="button">📊 Mở Web Dashboard</button>
 
   <div id="log"></div>
 
@@ -201,7 +236,7 @@
     <label for="serverUrl">Địa chỉ Gemini2API Server</label>
     <input id="serverUrl" type="url" placeholder="http://127.0.0.1:18610" spellcheck="false">
     <label for="label">Nhãn tài khoản (tuỳ chọn)</label>
-    <input id="label" type="text" placeholder="Chrome AI Studio">
+    <input id="label" type="text" placeholder="Chrome Chat Gemini">
     <label for="adminKey">Admin Key (để trống khi chạy local)</label>
     <input id="adminKey" type="password" placeholder="Không bắt buộc ở chế độ Local" spellcheck="false">
   </details>

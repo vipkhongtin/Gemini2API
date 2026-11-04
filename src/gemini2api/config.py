@@ -12,6 +12,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DriverName = Literal["mock", "browser", "http"]
+UpstreamMode = Literal["gemini", "aistudio"]
 PoolStrategyName = Literal["round_robin", "lru", "affinity"]
 ThinkingLevel = Literal["none", "low", "medium", "high"]
 
@@ -55,7 +56,13 @@ class Settings(BaseSettings):
 
     # --- upstream driver ---
     driver: DriverName = "mock"
-    site_url: str = "https://aistudio.google.com"
+    upstream_mode: UpstreamMode = Field(
+        default="gemini",
+        description="Primary web upstream: 'gemini' for Chat Gemini (https://gemini.google.com/app) "
+        "or 'aistudio' for Google AI Studio (https://aistudio.google.com) as secondary.",
+    )
+    site_url: str = "https://gemini.google.com"
+    aistudio_url: str = "https://aistudio.google.com"
 
     # --- Gemini 4 Argon & Thinking ---
     default_model: str = Field(

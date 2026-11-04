@@ -30,10 +30,15 @@ async function refreshStatus() {
       cookieText.textContent = `Đã đăng nhập (${state.cookieCount} cookies)`;
     } else {
       cookieDot.className = "dot bad";
-      cookieText.textContent = "Chưa đăng nhập AI Studio";
+      cookieText.textContent = "Chưa đăng nhập Google";
     }
 
-    $("tabText").textContent = `${state.tabCount || 0} tab`;
+    if ($("geminiTabText")) {
+      $("geminiTabText").textContent = `${state.geminiTabCount || 0} tab`;
+    }
+    if ($("aiStudioTabText")) {
+      $("aiStudioTabText").textContent = `${state.aiStudioTabCount || 0} tab`;
+    }
   });
 }
 
@@ -41,39 +46,43 @@ async function loadSettings() {
   const stored = await chrome.storage.local.get({
     serverUrl: DEFAULT_SERVER,
     adminKey: "",
-    label: "Chrome AI Studio",
+    label: "Chrome Chat Gemini",
+    upstreamMode: "gemini",
   });
   $("serverUrl").value = stored.serverUrl || DEFAULT_SERVER;
   $("adminKey").value = stored.adminKey || "";
-  $("label").value = stored.label || "Chrome AI Studio";
+  $("label").value = stored.label || "Chrome Chat Gemini";
+  if ($("upstreamMode")) {
+    $("upstreamMode").value = stored.upstreamMode === "aistudio" ? "aistudio" : "gemini";
+  }
 }
 
 async function saveSettings() {
   const serverUrl = ($("serverUrl").value.trim() || DEFAULT_SERVER).replace(/\/+$/, "");
   const adminKey = $("adminKey").value.trim();
-  const label = $("label").value.trim() || "Chrome AI Studio";
-  await chrome.storage.local.set({ serverUrl, adminKey, label });
-  return { serverUrl, adminKey, label };
+  const label = $("label").value.trim() || "Chrome Chat Gemini";
+  const upstreamMode = $("upstreamMode") ? $("upstreamMode").value : "gemini";
+  await chrome.storage.local.set({ serverUrl, adminKey, label, upstreamMode });
+  return { serverUrl, adminKey, label, upstreamMode };
 }
 
 async function syncAndConnect() {
   const btn = $("syncBtn");
   btn.disabled = true;
   try {
-    const { serverUrl, adminKey, label } = await saveSettings();
+    const { serverUrl, adminKey, label, upstreamMode } = await saveSettings();
 
-    // 1. Reconnect WebSocket Bridge & auto-sync cookies via background worker
     await new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: "reconnect_and_sync" }, () => resolve());
     });
 
-    // 2. Also POST cookies to /admin/accounts so the account pool is updated immediately
-    const [aiCookies, googleCookies] = await Promise.all([
+    const [geminiCookies, aiCookies, googleCookies] = await Promise.all([
+      chrome.cookies.getAll({ url: "https://gemini.google.com/" }),
       chrome.cookies.getAll({ url: "https://aistudio.google.com/" }),
       chrome.cookies.getAll({ url: "https://accounts.google.com/" }),
     ]);
     const byName = new Map();
-    for (const c of [...googleCookies, ...aiCookies]) {
+    for (const c of [...googleCookies, ...aiCookies, ...geminiCookies]) {
       if (c.value) byName.set(c.name, c);
     }
     const cookies = Array.from(byName.values()).map((c) => ({
@@ -89,6 +98,11 @@ async function syncAndConnect() {
     const headers = { "Content-Type": "application/json" };
     if (adminKey) headers["Authorization"] = `Bearer ${adminKey}`;
 
+    const modeName =
+      upstreamMode === "aistudio"
+        ? "Google AI Studio (Phụ)"
+        : "Chat Gemini - gemini.google.com (Chính)";
+
     if (cookies.length > 0) {
       const resp = await fetch(`${serverUrl}/admin/accounts`, {
         method: "POST",
@@ -99,18 +113,18 @@ async function syncAndConnect() {
       if (resp && resp.ok) {
         const body = await resp.json();
         showLog(
-          `✓ Đã kết nối Bridge & đồng bộ tài khoản (${body.account?.id || "ok"}) với ${cookies.length} cookies!\nBạn có thể chat với Gemini 4 Argon ngay.`,
+          `✓ Đã kết nối Bridge (${modeName}) & đồng bộ tài khoản (${body.account?.id || "ok"}) với ${cookies.length} cookies!\nBạn có thể gọi API hoặc chat ngay.`,
           "ok"
         );
       } else {
         showLog(
-          `✓ Đã kích hoạt Live Bridge tới ${serverUrl}.\nHãy giữ 1 tab https://aistudio.google.com mở trên Chrome.`,
+          `✓ Đã kích hoạt Live Bridge (${modeName}) tới ${serverUrl}.`,
           "ok"
         );
       }
     } else {
       showLog(
-        "⚠ Chưa tìm thấy phiên đăng nhập Google AI Studio. Hãy bấm 'Mở AI Studio' và đăng nhập tài khoản Google của bạn.",
+        "⚠ Chưa tìm thấy phiên đăng nhập Google. Hãy bấm '💬 Mở Chat Gemini (Chính)' và đăng nhập tài khoản Google của bạn.",
         "bad"
       );
     }
@@ -131,6 +145,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("serverUrl").addEventListener("change", saveSettings);
   $("adminKey").addEventListener("change", saveSettings);
   $("label").addEventListener("change", saveSettings);
+  if ($("upstreamMode")) {
+    $("upstreamMode").addEventListener("change", async () => {
+      await saveSettings();
+      chrome.runtime.sendMessage({ type: "reconnect_and_sync" }, () => refreshStatus());
+    });
+  }
+
+  if ($("openGeminiBtn")) {
+    $("openGeminiBtn").addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://gemini.google.com/app" });
+    });
+  }
 
   $("openAiStudioBtn").addEventListener("click", () => {
     chrome.tabs.create({ url: "https://aistudio.google.com/prompts/new_chat" });

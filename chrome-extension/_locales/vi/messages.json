@@ -1,10 +1,10 @@
 {
   "extName": {
-    "message": "gemini2api Nhập Cookie",
+    "message": "Gemini2API - Cầu nối Chat Gemini (Chính) & AI Studio",
     "description": "Tên extension"
   },
   "extDesc": {
-    "message": "Nhập cookie đăng nhập Google AI Studio vào gateway gemini2api chỉ bằng một cú nhấp.",
+    "message": "Kết nối trực tiếp Chat Gemini (gemini.google.com - Chính) và Google AI Studio (aistudio.google.com - Phụ) vào gateway Gemini2API.",
     "description": "Mô tả extension"
   }
 }

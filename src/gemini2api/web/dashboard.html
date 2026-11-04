@@ -407,19 +407,22 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
           </div>
         </div>
         <div class="tiles" id="tiles"></div>
-        <h2>Trò chuyện với Gemini 4 Argon (Quản lý Phiên Chat &amp; Lịch sử)</h2>
+        <h2>Trò chuyện với Chat Gemini [Chính] &amp; AI Studio [Phụ] (Quản lý Phiên Chat &amp; Lịch sử)</h2>
         <div class="panel pad" style="margin-bottom: 12px;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:10px;">
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
-              <button class="btn primary" id="pg-new-btn" type="button" title="Bắt đầu cuộc trò chuyện mới trên Google AI Studio"><svg class="i"><use href="#i-plus"/></svg>Tạo Chat Mới</button>
+              <button class="btn primary" id="pg-new-btn" type="button" title="Bắt đầu cuộc trò chuyện mới trên Chat Gemini / AI Studio"><svg class="i"><use href="#i-plus"/></svg>Tạo Chat Mới</button>
               <select id="pg-session-select" aria-label="Phiên trò chuyện" style="flex:1; min-width:220px; max-width:420px;">
-                <option value="">✨ Phiên Chat Mới (Tự động mở chat mới trên AI Studio)</option>
+                <option value="">✨ Phiên Chat Mới (Tự động mở chat mới trên Chat Gemini)</option>
               </select>
               <button class="btn ghost" id="pg-del-btn" type="button" title="Xoá phiên chat đang chọn" hidden>Xoá phiên</button>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
               <select id="pg-model" aria-label="Model">
-                <option value="gemini-4-argon">gemini-4-argon (High Thinking)</option>
+                <option value="gemini-chat">gemini-chat (Chat Gemini - Chính)</option>
+                <option value="gemini-pro">gemini-pro (Gemini Pro / Thinking - Chính)</option>
+                <option value="gemini-flash">gemini-flash (Gemini Fast / Flash - Chính)</option>
+                <option value="gemini-4-argon">gemini-4-argon (High Thinking - AI Studio / Gemini)</option>
                 <option value="gemini-4-argon-medium">gemini-4-argon-medium (Medium Thinking)</option>
                 <option value="gemini-4-argon-low">gemini-4-argon-low (Low Thinking)</option>
                 <option value="gemini-4-argon-nothink">gemini-4-argon-nothink (No Thinking)</option>
@@ -429,7 +432,7 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
             </div>
           </div>
           <div id="pg-session-meta" class="muted" style="font-size:12px; margin-bottom:8px;">
-            Đang ở chế độ <b>Chat mới</b>: Khi gửi tin nhắn đầu tiên, hệ thống sẽ tự động tạo cuộc trò chuyện mới trên Google AI Studio. Chọn lại chat cũ ở menu trên để tiếp tục phiên chat trước đó.
+            Đang ở chế độ <b>Chat mới</b>: Khi gửi tin nhắn đầu tiên, hệ thống sẽ tự động tạo cuộc trò chuyện mới trên <b>Chat Gemini (gemini.google.com - Chính)</b> hoặc <b>Google AI Studio (Phụ)</b>. Chọn lại chat cũ ở menu trên để tiếp tục phiên chat trước đó.
           </div>
           <div id="pg-history" style="display:flex; flex-direction:column; gap:10px; max-height:420px; overflow-y:auto; margin-bottom:10px; padding:4px 2px;"></div>
           <div style="display:flex; gap:8px; align-items:center;">
@@ -453,10 +456,10 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
       <!-- accounts -->
       <section class="page" id="page-accounts" hidden>
         <div class="page-head">
-          <div class="grow"><h1>Accounts</h1><div class="sub">aistudio.google.com accounts in the pool. An account that runs out of quota comes back when its cooldown ends.</div></div>
+          <div class="grow"><h1>Accounts</h1><div class="sub">Google Gemini (<span class="mono">gemini.google.com</span> - Primary) &amp; AI Studio (<span class="mono">aistudio.google.com</span> - Secondary) accounts in the pool.</div></div>
           <div class="tools">
             <button class="btn" id="acc-refresh" type="button"><svg class="i"><use href="#i-refresh"/></svg>Refresh</button>
-            <button class="btn" id="acc-ext-dl" type="button" title="Download the Chrome extension to import aistudio.google.com cookies"><svg class="i" viewBox="0 0 24 24"><path d="M12 15l-4-4h3V4h2v7h3l-4 4z"/><path d="M5 18h14v2H5z"/></svg>Download extension</button>
+            <button class="btn" id="acc-ext-dl" type="button" title="Download the Chrome extension to connect gemini.google.com (Primary) & aistudio.google.com (Secondary)"><svg class="i" viewBox="0 0 24 24"><path d="M12 15l-4-4h3V4h2v7h3l-4 4z"/><path d="M5 18h14v2H5z"/></svg>Download extension</button>
             <button class="btn" id="acc-bulk-toggle" type="button" title="Import many cookies at once">Bulk import</button>
           </div>
         </div>
@@ -536,8 +539,8 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
       <section class="page" id="page-docs" hidden>
         <div class="page-head">
           <div class="grow">
-            <h1>Hướng dẫn sử dụng API (Gemini 4 Argon)</h1>
-            <div class="sub">Tích hợp chuẩn OpenAI API tương thích với Cursor, Cline, Roo Code, ChatBox, LobeChat, OpenWebUI và Python/Node.js SDK.</div>
+            <h1>Hướng dẫn sử dụng API — Chat Gemini (Chính) &amp; AI Studio (Phụ)</h1>
+            <div class="sub">Biến Google Gemini Web Chat (<span class="mono">gemini.google.com/app</span> - Chính) và Google AI Studio (<span class="mono">aistudio.google.com</span> - Phụ) thành chuẩn OpenAI API tương thích với Cursor, Cline, Roo Code, ChatBox, LobeChat, OpenWebUI và Python/Node.js SDK.</div>
           </div>
         </div>
 
@@ -568,9 +571,15 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
               </thead>
               <tbody>
                 <tr>
+                  <td><span class="mono"><b>gemini-chat</b></span> / <span class="mono"><b>gemini-pro</b></span> / <span class="mono"><b>gemini-flash</b></span></td>
+                  <td><span class="badge plain b-ok">Chính (Chat Gemini)</span></td>
+                  <td>Mô hình chính chạy trực tiếp trên Google Gemini Web Chat (<span class="mono">gemini.google.com/app</span>).</td>
+                  <td><span class="mono">POST /v1/chat/completions</span></td>
+                </tr>
+                <tr>
                   <td><span class="mono"><b>gemini-4-argon</b></span></td>
                   <td><span class="badge plain b-ok">High (Mặc định)</span></td>
-                  <td>Gemini 4 Argon suy luận sâu, tối ưu cho lập trình, toán học và phân tích phức tạp.</td>
+                  <td>Hỗ trợ cả Chat Gemini (Chính) và Google AI Studio (Phụ) — suy luận sâu cho lập trình, toán học và phân tích.</td>
                   <td><span class="mono">POST /v1/chat/completions</span></td>
                 </tr>
                 <tr>
@@ -614,13 +623,13 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-si
           </div>
         </div>
 
-        <h2>3. Cơ chế Tự động Tạo Chat Mới &amp; Mở lại Chat Cũ</h2>
+        <h2>3. Cơ chế Tự động Tạo Chat Mới &amp; Mở lại Chat Cũ (Chat Gemini Chính &amp; AI Studio Phụ)</h2>
         <div class="panel pad" style="margin-bottom: 14px; font-size: 13.5px; line-height: 1.55;">
-          <p style="margin: 0 0 8px;">Hệ thống tự động quản lý vòng đời phiên hội thoại giữa ứng dụng của bạn và Google AI Studio:</p>
+          <p style="margin: 0 0 8px;">Hệ thống tự động quản lý vòng đời phiên hội thoại giữa ứng dụng của bạn với <b>Chat Gemini (<span class="mono">gemini.google.com/app</span> - Chính)</b> và <b>Google AI Studio (<span class="mono">aistudio.google.com</span> - Phụ)</b>:</p>
           <ul style="margin: 0; padding-left: 20px;">
-            <li><b>Khi bắt đầu cuộc trò chuyện mới</b> (mảng <span class="mono">messages</span> chỉ có 1 tin nhắn <span class="mono">user</span> đầu tiên): Server tự động tạo <span class="mono">session_id</span> mới và yêu cầu Chrome Extension mở cuộc trò chuyện mới trên Google AI Studio (<span class="mono">/prompts/new_chat</span>).</li>
+            <li><b>Khi bắt đầu cuộc trò chuyện mới</b> (mảng <span class="mono">messages</span> chỉ có 1 tin nhắn <span class="mono">user</span> đầu tiên): Server tự động tạo <span class="mono">session_id</span> mới và yêu cầu Chrome Extension mở cuộc trò chuyện mới trên Chat Gemini (<span class="mono">https://gemini.google.com/app</span> — Chính) hoặc AI Studio (<span class="mono">/prompts/new_chat</span> — Phụ).</li>
             <li><b>Khi đang chat tiếp lượt 2, 3, 4...</b>: Server chỉ gửi phần tin nhắn mới (<span class="mono">delta_prompt</span>) vào đúng tab đang mở mà không tải lại trang.</li>
-            <li><b>Khi bạn mở lại một cuộc trò chuyện cũ để chat tiếp</b>: Server tự động nhận diện lịch sử tin nhắn trong mảng <span class="mono">messages</span> (hoặc qua tham số <span class="mono">"user": "sess_..."</span>), tự động điều hướng tab Chrome quay lại đúng đường dẫn <span class="mono">https://aistudio.google.com/prompts/&lt;id&gt;</span> của phiên chat cũ đó và tiếp tục cuộc hội thoại.</li>
+            <li><b>Khi bạn mở lại một cuộc trò chuyện cũ để chat tiếp</b>: Server tự động nhận diện lịch sử tin nhắn trong mảng <span class="mono">messages</span> (hoặc qua tham số <span class="mono">"user": "sess_..."</span>), tự động điều hướng tab Chrome quay lại đúng đường dẫn <span class="mono">https://gemini.google.com/app/&lt;id&gt;</span> (hoặc <span class="mono">https://aistudio.google.com/prompts/&lt;id&gt;</span>) của phiên chat cũ đó và tiếp tục cuộc hội thoại.</li>
           </ul>
         </div>
 
@@ -1676,11 +1685,11 @@ console.log("Answer:", res.choices[0].message.content);</pre>
     if (!metaEl) return;
     if (!pgState.sessionId) {
       delBtn.hidden = true;
-      metaEl.innerHTML = `Đang ở chế độ <b>Chat mới</b>: Khi gửi tin nhắn đầu tiên, hệ thống sẽ tự động tạo cuộc trò chuyện mới trên Google AI Studio.`;
+      metaEl.innerHTML = `Đang ở chế độ <b>Chat mới</b>: Khi gửi tin nhắn đầu tiên, hệ thống sẽ tự động tạo cuộc trò chuyện mới trên <b>Chat Gemini (Chính)</b> hoặc <b>AI Studio (Phụ)</b>.`;
     } else {
       delBtn.hidden = false;
       const urlInfo = pgState.threadUrl
-        ? ` · <a class="link mono" href="${esc(pgState.threadUrl)}" target="_blank" rel="noopener">Mở trên AI Studio</a>`
+        ? ` · <a class="link mono" href="${esc(pgState.threadUrl)}" target="_blank" rel="noopener">Mở phiên trên Web</a>`
         : "";
       metaEl.innerHTML = `Đang tiếp tục phiên <span class="mono">${esc(pgState.sessionId)}</span> (${pgState.messages.length} tin nhắn)${urlInfo}: Gửi tin nhắn sẽ chat nối tiếp trong phiên này.`;
     }
@@ -1693,7 +1702,7 @@ console.log("Answer:", res.choices[0].message.content);</pre>
       const sel = $("#pg-session-select");
       if (!sel) return;
       const current = pgState.sessionId;
-      sel.innerHTML = `<option value="">✨ Phiên Chat Mới (Tự động mở chat mới trên AI Studio)</option>` +
+      sel.innerHTML = `<option value="">✨ Phiên Chat Mới (Tự động mở chat mới trên Chat Gemini)</option>` +
         pgState.sessions.map((s) => {
           const cnt = s.message_count || 0;
           return `<option value="${esc(s.id)}">💬 ${esc(s.title)} (${cnt} tin · ${ago(s.updated_at)})</option>`;

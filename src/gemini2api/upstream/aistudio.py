@@ -1,6 +1,7 @@
-"""Facts about the Google AI Studio (aistudio.google.com) web app shared by all drivers.
+"""Facts about Google Gemini Chat (`gemini.google.com`, primary) and Google AI Studio
+(`aistudio.google.com`, secondary) shared by all drivers.
 
-Everything here was observed from the Google AI Studio web client and Google's
+Everything here was observed from the Google Gemini / AI Studio web clients and Google's
 cookie/session architecture. Keep upstream-specific constants in this module so
 that a site update is a one-file fix.
 """
@@ -18,6 +19,9 @@ import httpx
 
 from ..drivers.base import SessionInfo
 from ..errors import UpstreamAuthError, UpstreamError
+
+GEMINI_CHAT_SITE = "https://gemini.google.com"
+GEMINI_CHAT_NEW_URL = f"{GEMINI_CHAT_SITE}/app"
 
 SITE = "https://aistudio.google.com"
 NEW_THREAD_URL = f"{SITE}/prompts/new_chat"

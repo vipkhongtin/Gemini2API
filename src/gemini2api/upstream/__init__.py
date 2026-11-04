@@ -1,3 +1,4 @@
-from . import aistudio
+from . import aistudio, gemini
 
-__all__ = ["aistudio"]
+__all__ = ["aistudio", "gemini"]
+

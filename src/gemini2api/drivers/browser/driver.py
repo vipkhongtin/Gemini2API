@@ -79,8 +79,19 @@ class AccountBusy(Gemini2APIError):
 
 
 def is_thread_url(url: str) -> bool:
-    """A real saved conversation URL in Google AI Studio (/prompts/<id>) or (/thread/<id>)."""
+    """A real saved conversation URL in Google Gemini Chat (`/app/<id>`, primary)
+    or Google AI Studio (`/prompts/<id>`, secondary)."""
     path = urlsplit(url).path.rstrip("/")
+    # Primary: Chat Gemini (https://gemini.google.com/app/<id> or /u/0/app/<id>)
+    if path.startswith("/app/") and not path.startswith("/app/prompts/") and not path.endswith("/new_chat"):
+        tail = path[len("/app/") :].strip("/")
+        if tail and "/" not in tail:
+            return True
+    if "/app/" in path and path.startswith("/u/"):
+        tail = path.split("/app/", 1)[-1].strip("/")
+        if tail and "/" not in tail:
+            return True
+    # Secondary: Google AI Studio (/prompts/<id>)
     if path.startswith("/prompts/") and path != "/prompts/new_chat":
         return True
     if path.startswith("/app/prompts/") and not path.endswith("/new_chat"):
@@ -395,7 +406,10 @@ class BrowserDriver(GeminiDriver):
         self._forget(tab)
         if await self._soft_new_thread(tab):
             return
-        target_url = aistudio.new_chat_url(model) if model else aistudio.NEW_THREAD_URL
+        if getattr(self.settings, "upstream_mode", "gemini") == "aistudio":
+            target_url = aistudio.new_chat_url(model) if model else aistudio.NEW_THREAD_URL
+        else:
+            target_url = aistudio.GEMINI_CHAT_NEW_URL
         await tab.session.send("Page.navigate", {"url": target_url})
         deadline = time.monotonic() + self.settings.page_ready_timeout
         state: dict = {}
@@ -408,9 +422,9 @@ class BrowserDriver(GeminiDriver):
         head = (state.get("head") or "").lower()
         if any(h in head for h in dom.LOGIN_HINTS):
             raise UpstreamAuthError(
-                "Google AI Studio redirected to login; cookies are no longer valid"
+                "Google Gemini / AI Studio redirected to login; cookies are no longer valid"
             )
-        raise UpstreamTimeout("Google AI Studio page did not become ready")
+        raise UpstreamTimeout("Google Gemini / AI Studio page did not become ready")
 
     # ------------------------------------------------------------ input
     async def _attach(self, tab: _Tab, images: list[InputImage]) -> None:

@@ -1,6 +1,9 @@
 "use strict";
 
 const DEFAULT_SERVER = "http://127.0.0.1:18610";
+// Primary upstream: Google Gemini Web Chat (Chat Gemini)
+const GEMINI_CHAT_NEW_URL = "https://gemini.google.com/app";
+// Secondary upstream: Google AI Studio
 const AI_STUDIO_NEW_CHAT = "https://aistudio.google.com/prompts/new_chat";
 
 let ws = null;
@@ -13,17 +16,24 @@ async function getServerUrl() {
   return (stored.serverUrl || DEFAULT_SERVER).trim().replace(/\/+$/, "");
 }
 
+async function getUpstreamMode() {
+  const stored = await chrome.storage.local.get({ upstreamMode: "gemini" });
+  const m = String(stored.upstreamMode || "gemini").toLowerCase();
+  return m === "aistudio" ? "aistudio" : "gemini";
+}
+
 function toWsUrl(httpUrl) {
   return httpUrl.replace(/^http:/i, "ws:").replace(/^https:/i, "wss:") + "/ws/extension";
 }
 
-async function readAiStudioCookies() {
-  const [aiCookies, googleCookies] = await Promise.all([
+async function readGoogleCookies() {
+  const [geminiCookies, aiCookies, googleCookies] = await Promise.all([
+    chrome.cookies.getAll({ url: "https://gemini.google.com/" }),
     chrome.cookies.getAll({ url: "https://aistudio.google.com/" }),
     chrome.cookies.getAll({ url: "https://accounts.google.com/" }),
   ]);
   const byName = new Map();
-  for (const c of [...googleCookies, ...aiCookies]) {
+  for (const c of [...googleCookies, ...aiCookies, ...geminiCookies]) {
     if (c.value) byName.set(c.name, c);
   }
   return Array.from(byName.values()).map((c) => ({
@@ -37,6 +47,10 @@ async function readAiStudioCookies() {
   }));
 }
 
+async function findGeminiTabs() {
+  return await chrome.tabs.query({ url: "https://gemini.google.com/*" });
+}
+
 async function findAiStudioTabs() {
   return await chrome.tabs.query({ url: "https://aistudio.google.com/*" });
 }
@@ -44,15 +58,24 @@ async function findAiStudioTabs() {
 async function sendStatusHello() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   try {
-    const cookies = await readAiStudioCookies();
-    const tabs = await findAiStudioTabs();
+    const [cookies, geminiTabs, aiStudioTabs, upstreamMode] = await Promise.all([
+      readGoogleCookies(),
+      findGeminiTabs(),
+      findAiStudioTabs(),
+      getUpstreamMode(),
+    ]);
     const hasSid = cookies.some((c) => c.name === "SID" || c.name === "__Secure-1PSID");
     ws.send(
       JSON.stringify({
         type: "hello",
-        label: "Chrome Extension (AI Studio)",
+        label:
+          upstreamMode === "aistudio"
+            ? "Chrome Extension (AI Studio - Phụ)"
+            : "Chrome Extension (Chat Gemini - Chính)",
         cookies: hasSid ? cookies : [],
-        aistudio_tabs: tabs.length,
+        gemini_tabs: geminiTabs.length,
+        aistudio_tabs: aiStudioTabs.length,
+        upstream_mode: upstreamMode,
         user_agent: navigator.userAgent,
       })
     );
@@ -153,14 +176,31 @@ async function disableBeforeUnload(tabId) {
   ).catch(() => null);
 }
 
-function isPromptPageUrl(url) {
+function isGeminiChatUrl(url) {
+  const u = String(url || "");
+  return u.includes("gemini.google.com") && (u.includes("/app") || u.includes("/gem/"));
+}
+
+function isAiStudioPromptUrl(url) {
   const u = String(url || "");
   return u.includes("aistudio.google.com") && u.includes("/prompts/");
 }
 
+function isPromptPageUrl(url, mode = "gemini") {
+  if (mode === "aistudio") return isAiStudioPromptUrl(url);
+  if (mode === "gemini") return isGeminiChatUrl(url);
+  return isGeminiChatUrl(url) || isAiStudioPromptUrl(url);
+}
+
 function isSpecificSavedThreadUrl(url) {
   const u = String(url || "").split("?")[0].replace(/\/+$/, "");
-  return u.includes("aistudio.google.com") && u.includes("/prompts/") && !u.endsWith("/new_chat");
+  if (u.includes("gemini.google.com")) {
+    return /\/app\/[a-zA-Z0-9_-]{6,}/.test(u);
+  }
+  if (u.includes("aistudio.google.com")) {
+    return u.includes("/prompts/") && !u.endsWith("/new_chat");
+  }
+  return false;
 }
 
 async function navigateTabAndWait(tabId, targetUrl, makeActive = false) {
@@ -179,7 +219,8 @@ async function navigateTabAndWait(tabId, targetUrl, makeActive = false) {
   return await chrome.tabs.get(tabId).catch(() => null);
 }
 
-// Executed inside the AI Studio tab to click "New Chat" via SPA router if possible
+// Executed inside either Chat Gemini (gemini.google.com/app) or AI Studio (aistudio.google.com)
+// to click "New Chat" via SPA router if possible.
 async function domResetToNewChat() {
   const queryAllDeep = (root, selector) => {
     const out = [];
@@ -199,6 +240,36 @@ async function domResetToNewChat() {
     return out;
   };
 
+  // --- Primary: Chat Gemini (gemini.google.com/app) ---
+  if (location.hostname.includes("gemini.google.com")) {
+    const geminiTurns = queryAllDeep(
+      document,
+      "model-response, message-content.model-response-text, user-query"
+    );
+    const onFreshApp =
+      /^\/(?:u\/\d+\/)?app\/?$/.test(location.pathname) && geminiTurns.length === 0;
+    if (onFreshApp) {
+      return { alreadyFresh: true };
+    }
+    const newChatBtns = queryAllDeep(
+      document,
+      '[data-test-id="new-chat-button"] button, [data-test-id="new-chat-button"], expandable-button[data-test-id*="new-chat"] button, a[href="/app"], a[href$="/app"], button[aria-label*="New chat" i], button[aria-label*="Cuộc trò chuyện mới" i], button[aria-label*="Chat mới" i]'
+    );
+    for (const el of newChatBtns) {
+      const s = window.getComputedStyle(el);
+      if (s.display !== "none" && s.visibility !== "hidden" && !el.disabled) {
+        el.click();
+        await new Promise((r) => setTimeout(r, 400));
+        const afterTurns = queryAllDeep(document, "model-response, user-query");
+        if (afterTurns.length === 0) {
+          return { clickedSpaNew: true };
+        }
+      }
+    }
+    return { needHardNav: true };
+  }
+
+  // --- Secondary: Google AI Studio (aistudio.google.com) ---
   const turns = queryAllDeep(
     document,
     'ms-chat-turn .model-prompt-container, ms-chat-turn[data-turn-role="Model"], [data-turn-role="Model"], ms-chat-turn'
@@ -208,7 +279,6 @@ async function domResetToNewChat() {
     return { alreadyFresh: true };
   }
 
-  // Try clicking the in-page "New chat" / "Clear chat" link/button for fast SPA reset
   const newLinks = queryAllDeep(
     document,
     'a[href*="/prompts/new_chat"], button[aria-label*="New chat" i], button[aria-label*="Clear chat" i], button[aria-label*="Reset" i], button[aria-label*="Create new" i], [data-test-id*="new-chat" i]'
@@ -218,7 +288,6 @@ async function domResetToNewChat() {
     if (s.display !== "none" && s.visibility !== "hidden") {
       el.click();
       await new Promise((r) => setTimeout(r, 350));
-      // If a confirmation dialog ("Discard unsaved changes?") popped up, confirm it
       const dialogBtns = queryAllDeep(document, "mat-dialog-container button, [role='dialog'] button");
       for (const db of dialogBtns) {
         const dt = (db.innerText || db.getAttribute("aria-label") || "").trim().toLowerCase();
@@ -248,10 +317,9 @@ async function domResetToNewChat() {
 }
 
 /**
- * Resolves the right Chrome tab and prepares it for either:
- * 1) A brand-new chat (req.new_chat === true) -> opens/resets to /prompts/new_chat
- * 2) Continuing / reopening an existing chat (req.new_chat === false) -> reuses the tab
- *    holding that session or navigates back to req.thread_url.
+ * Resolves the right Chrome tab for either:
+ * - Primary: Chat Gemini (`https://gemini.google.com/app`)
+ * - Secondary: Google AI Studio (`https://aistudio.google.com/prompts/new_chat`)
  */
 async function prepareTabForSession(req) {
   const isNewChat = Boolean(req.new_chat);
@@ -260,45 +328,57 @@ async function prepareTabForSession(req) {
   const hasSavedUrl = isSpecificSavedThreadUrl(targetThreadUrl);
   let promptToSend = req.prompt || "";
 
-  let tabs = await findAiStudioTabs();
+  let mode = await getUpstreamMode();
+  if (targetThreadUrl.includes("aistudio.google.com")) {
+    mode = "aistudio";
+  } else if (targetThreadUrl.includes("gemini.google.com")) {
+    mode = "gemini";
+  }
+
+  const newChatUrl = mode === "aistudio" ? AI_STUDIO_NEW_CHAT : GEMINI_CHAT_NEW_CHATSafe(mode);
+  const [geminiTabs, aiStudioTabs] = await Promise.all([findGeminiTabs(), findAiStudioTabs()]);
+  let tabs = mode === "aistudio" ? aiStudioTabs : geminiTabs;
 
   // Case 1: Continuing or reopening an existing chat session
   if (!isNewChat && sessionId) {
-    // 1a. Check if a tab is already mapped to this sessionId
-    for (const t of tabs) {
-      if (tabSessionMap.get(t.id) === sessionId && isPromptPageUrl(t.url)) {
-        return { tab: t, promptToSend };
+    for (const t of [...geminiTabs, ...aiStudioTabs]) {
+      if (tabSessionMap.get(t.id) === sessionId && isPromptPageUrl(t.url, "any")) {
+        return { tab: t, promptToSend, mode: isAiStudioPromptUrl(t.url) ? "aistudio" : "gemini" };
       }
     }
-    // 1b. Check if a tab is already open at the saved thread_url
     if (hasSavedUrl) {
       const cleanTarget = targetThreadUrl.split("?")[0];
-      const matchTab = tabs.find((t) => String(t.url || "").startsWith(cleanTarget));
+      const matchTab = [...geminiTabs, ...aiStudioTabs].find((t) =>
+        String(t.url || "").startsWith(cleanTarget)
+      );
       if (matchTab) {
         tabSessionMap.set(matchTab.id, sessionId);
-        return { tab: matchTab, promptToSend };
+        return {
+          tab: matchTab,
+          promptToSend,
+          mode: isAiStudioPromptUrl(matchTab.url) ? "aistudio" : "gemini",
+        };
       }
     }
-    // 1c. Reopening an old chat not currently loaded in any tab:
-    let tab = tabs.find((t) => isPromptPageUrl(t.url)) || tabs[0] || null;
+    let tab = tabs.find((t) => isPromptPageUrl(t.url, mode)) || tabs[0] || null;
     if (!tab) {
-      const startUrl = hasSavedUrl ? targetThreadUrl : AI_STUDIO_NEW_CHAT;
+      const startUrl = hasSavedUrl ? targetThreadUrl : newChatUrl;
       tab = await chrome.tabs.create({ url: startUrl, active: true });
       await sleep(1500);
     } else if (hasSavedUrl) {
       tab = await navigateTabAndWait(tab.id, targetThreadUrl, false);
     } else {
-      tab = await navigateTabAndWait(tab.id, AI_STUDIO_NEW_CHAT, false);
+      tab = await navigateTabAndWait(tab.id, newChatUrl, false);
       promptToSend = req.full_prompt || req.prompt || "";
     }
     if (tab && tab.id) tabSessionMap.set(tab.id, sessionId);
-    return { tab, promptToSend };
+    return { tab, promptToSend, mode };
   }
 
   // Case 2: Starting a brand-new chat (req.new_chat === true)
-  let tab = tabs.find((t) => isPromptPageUrl(t.url)) || tabs[0] || null;
+  let tab = tabs.find((t) => isPromptPageUrl(t.url, mode)) || tabs[0] || null;
   if (!tab) {
-    tab = await chrome.tabs.create({ url: AI_STUDIO_NEW_CHAT, active: true });
+    tab = await chrome.tabs.create({ url: newChatUrl, active: true });
     for (let i = 0; i < 40; i++) {
       await sleep(400);
       const cur = await chrome.tabs.get(tab.id).catch(() => null);
@@ -308,8 +388,8 @@ async function prepareTabForSession(req) {
       }
     }
     await sleep(600);
-  } else if (!isPromptPageUrl(tab.url)) {
-    tab = await navigateTabAndWait(tab.id, AI_STUDIO_NEW_CHAT, false);
+  } else if (!isPromptPageUrl(tab.url, mode)) {
+    tab = await navigateTabAndWait(tab.id, newChatUrl, false);
   } else {
     await disableBeforeUnload(tab.id);
     const resetRes = await execScriptWithTimeout(
@@ -317,13 +397,12 @@ async function prepareTabForSession(req) {
       3000
     ).catch(() => null);
     if (!resetRes) {
-      // Tab is frozen by a modal dialog -> open a clean new tab
-      tab = await chrome.tabs.create({ url: AI_STUDIO_NEW_CHAT, active: true });
+      tab = await chrome.tabs.create({ url: newChatUrl, active: true });
       await sleep(1800);
     } else {
       const info = resetRes?.[0]?.result;
       if (!info || info.needHardNav) {
-        tab = await navigateTabAndWait(tab.id, AI_STUDIO_NEW_CHAT, false);
+        tab = await navigateTabAndWait(tab.id, newChatUrl, false);
       }
     }
   }
@@ -331,12 +410,18 @@ async function prepareTabForSession(req) {
   if (tab && tab.id && sessionId) {
     tabSessionMap.set(tab.id, sessionId);
   }
-  return { tab, promptToSend };
+  return { tab, promptToSend, mode };
 }
 
-// Async function injected into the Google AI Studio tab to find the prompt box, fill it, and click Run
+function GEMINI_CHAT_NEW_CHATSafe(mode) {
+  return mode === "aistudio" ? AI_STUDIO_NEW_CHAT : GEMINI_CHAT_NEW_URL;
+}
+
+// Injected into either Chat Gemini (gemini.google.com/app) [Primary]
+// or Google AI Studio (aistudio.google.com) [Secondary]
 async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
   const sleepInPage = (ms) => new Promise((r) => setTimeout(r, ms));
+  const isGeminiWeb = location.hostname.includes("gemini.google.com");
 
   const queryAllDeep = (root, selector) => {
     const out = [];
@@ -365,6 +450,179 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     return true;
   };
 
+  // =========================================================================
+  // PRIMARY UPSTREAM: Google Gemini Web Chat (https://gemini.google.com/app)
+  // =========================================================================
+  if (isGeminiWeb) {
+    const countGeminiTurns = () => {
+      return queryAllDeep(document, "model-response, message-content.model-response-text").length;
+    };
+    const turnsBefore = countGeminiTurns();
+
+    const GEMINI_INPUT_SELECTORS = [
+      'rich-textarea .ql-editor[contenteditable="true"]',
+      'div.ql-editor.textarea[contenteditable="true"]',
+      'rich-textarea div[contenteditable="true"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'textarea[aria-label*="prompt" i]',
+      'textarea[aria-label*="Ask" i]',
+      '[contenteditable="true"]',
+    ];
+
+    let inputEl = null;
+    for (const sel of GEMINI_INPUT_SELECTORS) {
+      const cands = queryAllDeep(document, sel).filter(isUsable);
+      if (cands.length > 0) {
+        inputEl = cands[cands.length - 1];
+        break;
+      }
+    }
+
+    if (!inputEl) {
+      return {
+        ok: false,
+        needNav: !location.pathname.includes("/app"),
+        currentUrl: location.href,
+        pageTitle: document.title,
+        error: `Không tìm thấy ô nhập chat trên Chat Gemini (${location.href}). Hãy mở https://gemini.google.com/app và đăng nhập.`,
+      };
+    }
+
+    inputEl.focus();
+    if (inputEl.tagName === "TEXTAREA" || inputEl.tagName === "INPUT") {
+      inputEl.value = promptText;
+      inputEl.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true, data: promptText }));
+      inputEl.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    } else {
+      try {
+        document.execCommand("selectAll", false, null);
+        document.execCommand("delete", false, null);
+      } catch {}
+      let inserted = false;
+      try {
+        inserted = document.execCommand("insertText", false, promptText);
+      } catch {}
+      const curText = (inputEl.innerText || inputEl.textContent || "").trim();
+      if (!inserted || curText !== String(promptText).trim()) {
+        inputEl.innerHTML = "";
+        const lines = String(promptText).split("\n");
+        for (const line of lines) {
+          const p = document.createElement("p");
+          if (line) p.textContent = line;
+          else p.appendChild(document.createElement("br"));
+          inputEl.appendChild(p);
+        }
+      }
+      inputEl.classList.remove("ql-blank");
+      inputEl.dispatchEvent(
+        new InputEvent("beforeinput", {
+          bubbles: true,
+          composed: true,
+          cancelable: true,
+          inputType: "insertText",
+          data: promptText,
+        })
+      );
+      inputEl.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          composed: true,
+          cancelable: true,
+          inputType: "insertText",
+          data: promptText,
+        })
+      );
+      inputEl.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    }
+
+    await sleepInPage(180);
+
+    const isGeminiSendBtn = (b) => {
+      if (!b || !isUsable(b)) return false;
+      if (b.disabled || b.getAttribute("aria-disabled") === "true") return false;
+      if (b.classList && b.classList.contains("stop")) return false;
+      const label = (
+        (b.getAttribute("aria-label") || "") +
+        " " +
+        (b.getAttribute("mattooltip") || "") +
+        " " +
+        (b.innerText || "")
+      ).toLowerCase();
+      if (
+        label.includes("stop") ||
+        label.includes("dừng") ||
+        label.includes("mic") ||
+        label.includes("thoại") ||
+        label.includes("upload") ||
+        label.includes("tải lên")
+      ) {
+        return false;
+      }
+      return true;
+    };
+
+    const GEMINI_SEND_SELECTORS = [
+      "button.send-button:not(.stop)",
+      ".send-button-container button:not(.stop)",
+      'button[aria-label*="Send message" i]',
+      'button[aria-label*="Gửi tin nhắn" i]',
+      'button[aria-label*="Send" i]',
+      'button[mattooltip*="Send" i]',
+      'button[mattooltip*="Gửi" i]',
+    ];
+
+    let clicked = false;
+    for (let waitAttempt = 0; waitAttempt < 20; waitAttempt++) {
+      for (const s of GEMINI_SEND_SELECTORS) {
+        const btns = queryAllDeep(document, s).filter(isGeminiSendBtn);
+        if (btns.length > 0) {
+          btns[btns.length - 1].click();
+          clicked = true;
+          break;
+        }
+      }
+      if (clicked) break;
+      await sleepInPage(120);
+    }
+
+    await sleepInPage(280);
+    const remainingText = (
+      inputEl.value !== undefined ? inputEl.value : inputEl.innerText || inputEl.textContent || ""
+    ).trim();
+    if (!clicked || (remainingText.length > 0 && countGeminiTurns() <= turnsBefore)) {
+      const rawSend = queryAllDeep(document, "button.send-button:not(.stop)")[0];
+      if (rawSend) {
+        rawSend.disabled = false;
+        rawSend.removeAttribute("disabled");
+        rawSend.removeAttribute("aria-disabled");
+        rawSend.click();
+      }
+      for (const evType of ["keydown", "keypress", "keyup"]) {
+        inputEl.dispatchEvent(
+          new KeyboardEvent(evType, {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            shiftKey: false,
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+          })
+        );
+      }
+    }
+
+    return {
+      ok: true,
+      turnsBefore,
+      currentUrl: location.href,
+    };
+  }
+
+  // =========================================================================
+  // SECONDARY UPSTREAM: Google AI Studio (https://aistudio.google.com)
+  // =========================================================================
   const isSystemInstructionInput = (el) => {
     const aria = (el.getAttribute("aria-label") || "").toLowerCase();
     const ph = (el.getAttribute("placeholder") || "").toLowerCase();
@@ -375,7 +633,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     return false;
   };
 
-  // Dismiss any welcome/consent/unsaved overlay button if present
   try {
     const dismissBtns = queryAllDeep(
       document,
@@ -396,7 +653,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     }
   } catch {}
 
-  // 1. Configure Model & Thinking Level if present in Run Settings
   try {
     const wantModel = String(modelId || "").toLowerCase();
     if (wantModel) {
@@ -437,7 +693,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     }
   } catch {}
 
-  // 2. Find the chat prompt input element (supports both <textarea> and contenteditable across light & shadow DOM)
   const PRIORITY_SELECTORS = [
     "ms-prompt-input-wrapper textarea",
     "ms-autosize-textarea textarea",
@@ -471,7 +726,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     }
   }
 
-  // Fallback: any non-system textarea or contenteditable on the page
   if (!inputEl) {
     const allTextareas = queryAllDeep(document, "textarea").filter(
       (el) => isUsable(el) && !isSystemInstructionInput(el)
@@ -500,7 +754,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     };
   }
 
-  // Count existing model answer turns before sending (excluding thought-activity-host turns)
   const countModelTurns = () => {
     const allModel = queryAllDeep(document, "ms-chat-turn:not(.thought-activity-host)").filter(
       (t) =>
@@ -511,7 +764,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
   };
   const turnsBefore = countModelTurns();
 
-  // 3. Insert prompt text reliably into <textarea> or contenteditable
   inputEl.focus();
   if (inputEl.tagName === "TEXTAREA" || inputEl.tagName === "INPUT") {
     const proto =
@@ -556,10 +808,8 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     }
   }
 
-  // Wait for Angular to process input change and enable the Run button
   await sleepInPage(180);
 
-  // 4. Click the Run / Send button (explicitly excluding "Run settings" / "Stop")
   const isRunPromptButton = (b) => {
     if (!b || !isUsable(b)) return false;
     if (b.disabled || b.getAttribute("aria-disabled") === "true") return false;
@@ -606,7 +856,6 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
     await sleepInPage(120);
   }
 
-  // Verify submission after 300ms; if input box still has text, dispatch Ctrl+Enter & force-click Run
   await sleepInPage(300);
   const currentVal = (inputEl.value !== undefined ? inputEl.value : inputEl.textContent || "").trim();
   if (!clicked || (currentVal.length > 0 && countModelTurns() <= turnsBefore)) {
@@ -645,8 +894,11 @@ async function domPrepareAndSend(promptText, modelId, thinkingLevel) {
   };
 }
 
-// Executed inside the tab to poll streaming thoughts & answer text
+// Executed inside the tab to poll streaming thoughts & answer text on
+// Chat Gemini (gemini.google.com/app) [Primary] or AI Studio (aistudio.google.com) [Secondary]
 function domReadChatState() {
+  const isGeminiWeb = location.hostname.includes("gemini.google.com");
+
   const queryAllDeep = (root, selector) => {
     const out = [];
     const visit = (node) => {
@@ -665,6 +917,94 @@ function domReadChatState() {
     return out;
   };
 
+  const isVisible = (el) => {
+    if (!el) return false;
+    const s = window.getComputedStyle(el);
+    if (s.display === "none" || s.visibility === "hidden") return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+
+  // =========================================================================
+  // PRIMARY UPSTREAM: Google Gemini Web Chat (https://gemini.google.com/app)
+  // =========================================================================
+  if (isGeminiWeb) {
+    const responses = queryAllDeep(document, "model-response");
+    const fallbackResponses =
+      responses.length > 0
+        ? responses
+        : queryAllDeep(document, "message-content.model-response-text");
+    const last = fallbackResponses.length
+      ? fallbackResponses[fallbackResponses.length - 1]
+      : null;
+
+    let lastThought = "";
+    let lastText = "";
+
+    if (last) {
+      const thoughtNodes = queryAllDeep(
+        last,
+        "model-thoughts .thoughts-content, model-thoughts .markdown, .thoughts-container .thoughts-content, [data-test-id*='thoughts-content']"
+      );
+      if (thoughtNodes.length) {
+        lastThought = thoughtNodes
+          .map((n) => (n.innerText || "").trim())
+          .filter(Boolean)
+          .join("\n\n");
+      } else {
+        const rawThoughtBox = queryAllDeep(last, "model-thoughts, .thoughts-container")[0];
+        if (rawThoughtBox) {
+          const tClone = rawThoughtBox.cloneNode(true);
+          tClone.querySelectorAll("button, .thoughts-header").forEach((n) => n.remove());
+          lastThought = (tClone.innerText || "").trim();
+        }
+      }
+
+      const contentEl =
+        queryAllDeep(
+          last,
+          "message-content.model-response-text .markdown, message-content.model-response-text, .model-response-text"
+        )[0] || last;
+      const clone = contentEl.cloneNode(true);
+      clone
+        .querySelectorAll(
+          "model-thoughts, .thoughts-container, .thoughts-content, [data-test-id*='thoughts'], message-actions, .response-footer, .tts-button-container, button"
+        )
+        .forEach((n) => n.remove());
+      lastText = (clone.innerText || "").trim();
+    }
+
+    const GEMINI_STOP_SELECTORS = [
+      "button.send-button.stop",
+      'button[aria-label*="Stop response" i]',
+      'button[aria-label*="Stop generating" i]',
+      'button[aria-label*="Dừng phản hồi" i]',
+      'button[aria-label*="Dừng" i]',
+      ".blue-circle.stop-icon",
+    ];
+    const stopVisible = GEMINI_STOP_SELECTORS.some((s) =>
+      queryAllDeep(document, s).some(isVisible)
+    );
+    const busyIndicator = Boolean(
+      last &&
+        queryAllDeep(
+          last,
+          '[aria-busy="true"], mat-progress-bar, .loading-indicator, .response-streaming'
+        ).length
+    );
+
+    return {
+      agentCount: fallbackResponses.length,
+      lastThought,
+      lastText,
+      generating: stopVisible || busyIndicator,
+      currentUrl: location.href,
+    };
+  }
+
+  // =========================================================================
+  // SECONDARY UPSTREAM: Google AI Studio (https://aistudio.google.com)
+  // =========================================================================
   const STOP_SELECTORS = [
     "button.run-button.stoppable",
     "ms-run-button button.stoppable",
@@ -673,13 +1013,6 @@ function domReadChatState() {
     'button[aria-label="Stop" i]',
     "ms-stop-button button",
   ];
-  const isVisible = (el) => {
-    if (!el) return false;
-    const s = window.getComputedStyle(el);
-    if (s.display === "none" || s.visibility === "hidden") return false;
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  };
 
   const allChatTurns = queryAllDeep(document, "ms-chat-turn");
   const lastOverallTurn = allChatTurns.length ? allChatTurns[allChatTurns.length - 1] : null;
@@ -762,18 +1095,19 @@ async function handleChatRequest(req) {
   activeRequests.set(reqId, state);
 
   try {
-    let { tab, promptToSend } = await prepareTabForSession(req);
+    let { tab, promptToSend, mode } = await prepareTabForSession(req);
     if (!tab || !tab.id) {
       sendWs({
         type: "error",
         request_id: reqId,
-        message: "Không thể mở tab Google AI Studio trên Chrome.",
+        message: "Không thể mở tab Chat Gemini / AI Studio trên Chrome.",
       });
       return;
     }
 
     let prepResult = null;
     let navigatedFallback = false;
+    const defaultNewUrl = mode === "aistudio" ? AI_STUDIO_NEW_CHAT : GEMINI_CHAT_NEW_URL;
 
     for (let attempt = 0; attempt < 35; attempt++) {
       if (state.cancelled) return;
@@ -793,14 +1127,12 @@ async function handleChatRequest(req) {
       prepResult = injected?.[0]?.result;
       if (prepResult && prepResult.ok) break;
 
-      // If the tab wasn't on /prompts/new_chat or Angular hadn't mounted in a background tab,
-      // navigate & activate the tab once after attempt 5 so Chrome renders the editor.
       if (!navigatedFallback && (attempt === 5 || prepResult?.needNav)) {
         navigatedFallback = true;
         const navUrl =
           !req.new_chat && isSpecificSavedThreadUrl(req.thread_url)
             ? req.thread_url
-            : AI_STUDIO_NEW_CHAT;
+            : defaultNewUrl;
         tab = (await navigateTabAndWait(tab.id, navUrl, true)) || tab;
       }
       await sleep(500);
@@ -812,7 +1144,7 @@ async function handleChatRequest(req) {
         request_id: reqId,
         message:
           prepResult?.error ||
-          "Không tìm thấy ô nhập prompt trên Google AI Studio. Hãy mở https://aistudio.google.com/prompts/new_chat trên Chrome.",
+          `Không tìm thấy ô nhập chat. Hãy mở ${defaultNewUrl} trên Chrome và đăng nhập Google.`,
       });
       return;
     }
@@ -909,7 +1241,7 @@ async function handleChatRequest(req) {
     sendWs({
       type: "error",
       request_id: reqId,
-      message: "Hết thời gian chờ phản hồi từ Google AI Studio.",
+      message: "Hết thời gian chờ phản hồi từ Google Gemini / AI Studio.",
     });
   } catch (err) {
     sendWs({
@@ -941,18 +1273,25 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "get_bridge_state") {
-    Promise.all([readAiStudioCookies(), findAiStudioTabs(), getServerUrl()]).then(
-      ([cookies, tabs, serverUrl]) => {
-        const hasSid = cookies.some((c) => c.name === "SID" || c.name === "__Secure-1PSID");
-        sendResponse({
-          wsConnected,
-          cookieCount: cookies.length,
-          hasSid,
-          tabCount: tabs.length,
-          serverUrl,
-        });
-      }
-    );
+    Promise.all([
+      readGoogleCookies(),
+      findGeminiTabs(),
+      findAiStudioTabs(),
+      getServerUrl(),
+      getUpstreamMode(),
+    ]).then(([cookies, geminiTabs, aiStudioTabs, serverUrl, upstreamMode]) => {
+      const hasSid = cookies.some((c) => c.name === "SID" || c.name === "__Secure-1PSID");
+      sendResponse({
+        wsConnected,
+        cookieCount: cookies.length,
+        hasSid,
+        geminiTabCount: geminiTabs.length,
+        aiStudioTabCount: aiStudioTabs.length,
+        tabCount: geminiTabs.length + aiStudioTabs.length,
+        upstreamMode,
+        serverUrl,
+      });
+    });
     return true;
   }
   if (msg?.type === "reconnect_and_sync") {
@@ -966,13 +1305,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       await connectWebSocket();
       await sleep(300);
       await sendStatusHello();
-      const cookies = await readAiStudioCookies();
-      const tabs = await findAiStudioTabs();
+      const [cookies, geminiTabs, aiStudioTabs, upstreamMode] = await Promise.all([
+        readGoogleCookies(),
+        findGeminiTabs(),
+        findAiStudioTabs(),
+        getUpstreamMode(),
+      ]);
       sendResponse({
         ok: true,
         wsConnected,
         cookieCount: cookies.length,
-        tabCount: tabs.length,
+        geminiTabCount: geminiTabs.length,
+        aiStudioTabCount: aiStudioTabs.length,
+        tabCount: geminiTabs.length + aiStudioTabs.length,
+        upstreamMode,
       });
     })();
     return true;

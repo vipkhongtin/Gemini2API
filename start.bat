@@ -1,12 +1,14 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title Gemini2API - Google AI Studio Bridge (Gemini 4 Argon)
+title Gemini2API - Chat Gemini (Chinh) ^& AI Studio (Phu) Bridge
 
 cd /d "%~dp0"
 
 echo ====================================================================
-echo   GEMINI2API - Su dung Gemini 4 Argon qua Chrome Extension (Khong can API Key)
+echo   GEMINI2API - Bien Chat Gemini (gemini.google.com) thanh OpenAI API
+echo   * Nguon Chinh (Primary)   : https://gemini.google.com/app
+echo   * Nguon Phu   (Secondary) : https://aistudio.google.com
 echo ====================================================================
 echo.
 
@@ -53,9 +55,10 @@ set "API_BASE_URL=http://127.0.0.1:!PORT!/v1"
 
 echo   1. Thu muc Chrome Extension : %~dp0chrome-extension
 echo      (Mo chrome://extensions -^> Developer mode -^> Load unpacked)
-echo   2. Web Dashboard + Chat thu : !DASHBOARD_URL!
-echo   3. OpenAI Endpoint          : !API_BASE_URL!  (Khong can API Key)
-echo   4. Model mac dinh           : gemini-4-argon
+echo   2. Nguon Chinh (Primary)    : https://gemini.google.com/app
+echo   3. Nguon Phu   (Secondary)  : https://aistudio.google.com/prompts/new_chat
+echo   4. Web Dashboard + Chat thu : !DASHBOARD_URL!
+echo   5. OpenAI Endpoint          : !API_BASE_URL!  (Khong can API Key)
 echo ====================================================================
 echo [INFO] Dang mo trinh duyet tai !DASHBOARD_URL! sau 2 giay...
 echo.
@@ -64,6 +67,7 @@ echo.
 start "" /b cmd /c "timeout /t 2 /nobreak >nul & start "" "!DASHBOARD_URL!""
 
 :: 5. Khoi chay server Gemini2API
+set "PYTHONPATH=%~dp0src"
 ".venv\Scripts\python.exe" -m gemini2api
 
 echo.
